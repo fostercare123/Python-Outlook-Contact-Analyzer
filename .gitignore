@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+ENV/
+
+# Secrets & Config
+.env
+secrets.json
+config.py
+
+# Output Data
+*.txt
+*.csv
+*.xlsx
