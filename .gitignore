@@ -17,3 +17,33 @@ config.py
 *.txt
 *.csv
 *.xlsx
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup/Temp
+*.bak
+*.tmp
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup/Temp
+*.bak
+*.tmp
+*.log
