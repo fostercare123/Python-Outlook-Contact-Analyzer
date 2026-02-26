@@ -12,6 +12,8 @@ ENV/
 .env
 secrets.json
 config.py
+config_classic.py
+config_modern.py
 
 # Output Data
 *.txt

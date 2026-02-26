@@ -7,7 +7,7 @@ import imaplib
 import email
 import re
 import pandas as pd
-import config  # Local file for secrets
+import config_classic  # Local file for secrets
 
 # Configuration constants
 IMAP_SERVER = 'outlook.office365.com'
@@ -113,7 +113,7 @@ def extract_emails():
     try:
         # Establish secure connection to the IMAP server
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-        mail.login(config.EMAIL_USER, config.EMAIL_PASS)
+        mail.login(config_classic.EMAIL_USER, config_classic.EMAIL_PASS)
         # Select the 'inbox' folder; use "Sent Items" for sent mail
         mail.select("inbox")
     except Exception as e:
