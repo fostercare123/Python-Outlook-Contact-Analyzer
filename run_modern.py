@@ -1,7 +1,7 @@
 import re
 import pandas as pd
 from O365 import Account
-import modern_config as config # Note the rename here
+import config_modern
 
 COUNTRY_TLD_MAP = {'dk': 'Denmark', 'de': 'Germany', 'no': 'Norway', 'se': 'Sweden'} # Add more as needed
 GENERIC_TLDS = {'com', 'org', 'net'}
@@ -14,14 +14,14 @@ def detect_country(email_addr):
 
 def run_extractor():
     # 'public' flow is easiest for desktop scripts
-    credentials = (config.CLIENT_ID, None)
-    account = Account(credentials, tenant_id=config.TENANT_ID, auth_flow_type='public')
+    credentials = (config_modern.CLIENT_ID, None)
+    account = Account(credentials, tenant_id=config_modern.TENANT_ID, auth_flow_type='public')
     
     if not account.is_authenticated:
         # This prints a link to your terminal. Visit it, log in, paste back the URL.
         account.authenticate(scopes=['https://graph.microsoft.com/Mail.Read'])
 
-    mailbox = account.mailbox(resource=config.TARGET_EMAIL)
+    mailbox = account.mailbox(resource=config_modern.TARGET_EMAIL)
     inbox = mailbox.inbox_folder()
     
     print(f"Connecting to {config.TARGET_EMAIL}...")
