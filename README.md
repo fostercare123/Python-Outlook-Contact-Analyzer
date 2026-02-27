@@ -46,23 +46,48 @@ If you use Office 365 with 2-factor authentication:
 3. Create an **App password** for "Mail"
 4. Microsoft will generate a 16-character password
 
-### 2. Update `config.py`
+### 2. Update `config_classic.py`
 
-Edit `config.py` with your credentials:
+Edit `config_classic.py` with your credentials:
 
 ```python
 EMAIL_USER = 'your-email@outlook.com'
 EMAIL_PASS = 'your-app-password-here'
 ```
 
-**Security Note:** Never commit `config.py` with real credentials to version control. Consider using environment variables or `.gitignore` for sensitive data.
+**Security Note:** Never commit `config_classic.py` with real credentials to version control. Consider using environment variables or `.gitignore` for sensitive data.
+
+## PST (No Authentication) Mode
+
+If you already exported a local Outlook Data File (.pst), you can scan it without any login:
+
+1. Install the Windows dependency:
+```bash
+pip install pywin32
+```
+
+2. Update `config_classic.py`:
+```python
+USE_PST = True
+PST_PATH = r"C:\path\to\mailbox.pst"
+PST_FOLDERS = []  # Optional: e.g. ["Inbox", "Sent Items"]
+```
+
+3. Run the script:
+```bash
+python run_classic.py
+```
+
+Notes:
+- This uses Outlook on Windows via COM and does not require email authentication.
+- Leave `PST_FOLDERS` empty to scan all folders in the PST.
 
 ## Usage
 
 Simply run the script:
 
 ```bash
-python IMAP-extractor.py
+python run_classic.py
 ```
 
 The script will:

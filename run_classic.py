@@ -5,9 +5,15 @@ Extracts unique email addresses from Outlook headers and saves to Excel.
 
 import imaplib
 import email
+import os
 import re
 import pandas as pd
 import config_classic  # Local file for secrets
+
+try:
+    import win32com.client  # Requires pywin32 on Windows
+except Exception:
+    win32com = None
 
 # Configuration constants
 IMAP_SERVER = 'outlook.office365.com'
@@ -162,6 +168,96 @@ def extract_emails():
     return email_country_pairs
 
 
+def _iter_folders(folder):
+    yield folder
+    for subfolder in folder.Folders:
+        for nested in _iter_folders(subfolder):
+            yield nested
+
+
+def extract_emails_from_pst(pst_path, allowed_folder_names=None):
+    """
+    Scans a local PST file via Outlook and collects unique email addresses
+    with their detected countries.
+
+    Args:
+        pst_path (str): Full path to the PST file.
+        allowed_folder_names (list | None): Folder names to scan. If None or empty,
+            scans all folders.
+
+    Returns:
+        list: A list of tuples (email, country) found in the PST file.
+    """
+    if not win32com:
+        print("pywin32 is required for PST scanning. Install it with: pip install pywin32")
+        return []
+
+    if not pst_path:
+        print("PST path is empty. Set PST_PATH in config_classic.py")
+        return []
+
+    pst_path = os.path.abspath(pst_path)
+    if not os.path.exists(pst_path):
+        print(f"PST file not found: {pst_path}")
+        return []
+
+    outlook = win32com.client.Dispatch("Outlook.Application")
+    namespace = outlook.GetNamespace("MAPI")
+    namespace.AddStore(pst_path)
+
+    store_root = None
+    try:
+        for store in namespace.Stores:
+            store_path = getattr(store, "FilePath", "")
+            if store_path and os.path.abspath(store_path).lower() == pst_path.lower():
+                store_root = store.GetRootFolder()
+                break
+
+        if not store_root:
+            print("Could not locate the PST store after attaching it.")
+            return []
+
+        allowed = set(name.lower() for name in (allowed_folder_names or []) if name)
+        found_addresses = set()
+
+        for folder in _iter_folders(store_root):
+            if allowed and folder.Name.lower() not in allowed:
+                continue
+
+            try:
+                items = folder.Items
+            except Exception:
+                continue
+
+            for item in items:
+                if getattr(item, "Class", None) != 43:
+                    continue
+
+                for header_value in [
+                    getattr(item, "SenderEmailAddress", ""),
+                    getattr(item, "To", ""),
+                    getattr(item, "CC", ""),
+                    getattr(item, "BCC", ""),
+                ]:
+                    if not header_value:
+                        continue
+                    matches = re.findall(EMAIL_REGEX, header_value)
+                    found_addresses.update(matches)
+
+        email_country_pairs = [
+            (email_addr, detect_country(email_addr))
+            for email_addr in sorted(found_addresses)
+        ]
+
+        return email_country_pairs
+    finally:
+        if store_root:
+            try:
+                namespace.RemoveStore(store_root)
+            except Exception:
+                pass
+
+
 
 def save_to_excel(email_country_list):
     """
@@ -193,6 +289,12 @@ def save_to_excel(email_country_list):
 
 if __name__ == "__main__":
     # Extract email addresses and their corresponding countries from mailbox
-    email_country_data = extract_emails()
+    if getattr(config_classic, "USE_PST", False):
+        email_country_data = extract_emails_from_pst(
+            getattr(config_classic, "PST_PATH", ""),
+            getattr(config_classic, "PST_FOLDERS", None),
+        )
+    else:
+        email_country_data = extract_emails()
     # Save the results to an Excel file, organized by country
     save_to_excel(email_country_data)
