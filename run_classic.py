@@ -1,6 +1,7 @@
 """
-Outlook Email Extractor
-Extracts unique email addresses from Outlook headers and saves to Excel.
+Outlook Contact Analyzer
+Extracts unique email addresses from Outlook and analyzes geographic distribution.
+Author: Vasilije Niko Nikolic
 """
 
 import imaplib
@@ -11,6 +12,11 @@ import pandas as pd
 import config_classic  # Local file for secrets
 from datetime import datetime
 from collections import defaultdict
+
+try:
+    from tqdm import tqdm
+except Exception:
+    tqdm = None
 
 try:
     import win32com.client  # Requires pywin32 on Windows
@@ -79,6 +85,47 @@ COUNTRY_TLD_MAP = {
     'il': 'Israel',
 }
 
+# Country code to full name mapping (for WHOIS results)
+COUNTRY_CODE_MAP = {
+    'DK': 'Denmark',
+    'DE': 'Germany',
+    'SE': 'Sweden',
+    'NO': 'Norway',
+    'NL': 'Netherlands',
+    'BE': 'Belgium',
+    'FR': 'France',
+    'IT': 'Italy',
+    'ES': 'Spain',
+    'PT': 'Portugal',
+    'AT': 'Austria',
+    'CH': 'Switzerland',
+    'PL': 'Poland',
+    'CZ': 'Czech Republic',
+    'HU': 'Hungary',
+    'GR': 'Greece',
+    'IE': 'Ireland',
+    'FI': 'Finland',
+    'GB': 'United Kingdom',
+    'UK': 'United Kingdom',
+    'US': 'United States',
+    'CA': 'Canada',
+    'MX': 'Mexico',
+    'BR': 'Brazil',
+    'AR': 'Argentina',
+    'AU': 'Australia',
+    'NZ': 'New Zealand',
+    'JP': 'Japan',
+    'CN': 'China',
+    'IN': 'India',
+    'SG': 'Singapore',
+    'HK': 'Hong Kong',
+    'TH': 'Thailand',
+    'KR': 'South Korea',
+    'ZA': 'South Africa',
+    'AE': 'United Arab Emirates',
+    'IL': 'Israel',
+}
+
 # Common generic TLDs (map to 'Unknown' as they don't indicate country)
 GENERIC_TLDS = {'com', 'org', 'net', 'edu', 'gov', 'biz', 'info', 'co'}
 
@@ -123,7 +170,7 @@ def whois_lookup_country(domain):
         domain (str): Domain name (e.g., "novonordisk.com")
     
     Returns:
-        str: Country code or name if found, otherwise None.
+        str: Country name or code if found, otherwise None.
     """
     if not whois:
         return None
@@ -132,7 +179,9 @@ def whois_lookup_country(domain):
         w = whois.whois(domain)
         registrant_country = getattr(w, "registrant_country", None)
         if registrant_country:
-            return registrant_country
+            # Try to map the code to full name
+            country_upper = registrant_country.upper().strip()
+            return COUNTRY_CODE_MAP.get(country_upper, registrant_country)
     except Exception:
         pass
     
@@ -276,7 +325,7 @@ def extract_emails_from_pst(pst_path, allowed_folder_names=None):
             return []
 
         allowed = set(name.lower() for name in (allowed_folder_names or []) if name)
-        found_addresses = {}  # Changed to dict to store dates
+        found_addresses = {}  # Dict to store {email: {"date": date, "count": count}}
 
         for folder in _iter_folders(store_root):
             if allowed and folder.Name.lower() not in allowed:
@@ -313,13 +362,27 @@ def extract_emails_from_pst(pst_path, allowed_folder_names=None):
                         continue
                     matches = re.findall(EMAIL_REGEX, header_value)
                     for match in matches:
-                        found_addresses[match] = sent_date
+                        if match not in found_addresses:
+                            found_addresses[match] = {"date": sent_date, "count": 1}
+                        else:
+                            found_addresses[match]["count"] += 1
+                            # Keep the most recent date
+                            if sent_date != "Unknown":
+                                found_addresses[match]["date"] = sent_date
 
         # Convert dict to list of tuples with country detection
         email_country_pairs = []
-        for email_addr, sent_date in sorted(found_addresses.items()):
+        sorted_emails = sorted(found_addresses.items())
+        
+        # Show progress bar if tqdm is available
+        if tqdm:
+            iterator = tqdm(sorted_emails, desc="Detecting countries", unit="email")
+        else:
+            iterator = sorted_emails
+        
+        for email_addr, data in iterator:
             country, _ = detect_country_with_whois(email_addr)
-            email_country_pairs.append((email_addr, country, sent_date))
+            email_country_pairs.append((email_addr, country, data["date"], data["count"]))
 
         return email_country_pairs
     finally:
@@ -333,29 +396,43 @@ def extract_emails_from_pst(pst_path, allowed_folder_names=None):
 
 def save_to_excel(email_country_list):
     """
-    Converts the list of (email, country, date) tuples into a sorted Excel spreadsheet.
+    Converts the list of (email, country, date, count) tuples into a sorted Excel spreadsheet.
     
     Args:
-        email_country_list (list): List of tuples (email, country, date).
+        email_country_list (list): List of tuples (email, country, date, count).
     """
     if not email_country_list:
         print("No emails found. Skipping file creation.")
         return
 
-    # Create a DataFrame from the email-country-date tuples with proper column names
+    # Create a DataFrame from the email-country-date-count tuples
     df = pd.DataFrame(
         email_country_list,
-        columns=['Email Address', 'Country', 'Last Email Date']
+        columns=['Email Address', 'Country', 'Last Email Date', 'Count']
     )
     
-    # Sort by country first, then by email address for better organization
-    df.sort_values(by=['Country', 'Email Address', 'Last Email Date'], inplace=True)
+    # Sort by country first, then by count (descending), then by email address
+    df.sort_values(by=['Country', 'Count'], ascending=[True, False], inplace=True)
     df.reset_index(drop=True, inplace=True)
 
     # Export using openpyxl as the underlying engine
     filename = "extracted_contacts.xlsx"
     df.to_excel(filename, index=False)
-    print(f"Success! {len(email_country_list)} addresses saved to {filename}")
+    
+    # Print summary statistics
+    print("\n" + "="*60)
+    print("SUMMARY STATISTICS")
+    print("="*60)
+    total_unique = len(email_country_list)
+    total_emails = df['Count'].sum()
+    countries = df['Country'].nunique()
+    unknown = (df['Country'] == 'Unknown').sum()
+    print(f"Total unique emails: {total_unique}")
+    print(f"Total emails found:  {total_emails}")
+    print(f"Countries:           {countries}")
+    print(f"Unknown country:     {unknown}")
+    print("="*60)
+    print(f"\nSuccess! Saved to {filename}")
 
 
 

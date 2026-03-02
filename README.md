@@ -1,6 +1,8 @@
-# Python Email Extractor
+# Outlook Contact Analyzer
 
-Extract unique email addresses from Outlook and save them to Excel with country lookup by TLD and optional WHOIS registrant info. Includes email send dates.
+Extract unique email addresses from Outlook and save them to Excel with country lookup by TLD and optional WHOIS registrant info. Includes email send dates and engagement frequency.
+
+**Author:** Vasilije Niko Nikolic
 
 ## Quick start
 
@@ -47,15 +49,28 @@ python run_classic.py
 
 Output: `extracted_contacts.xlsx` with columns:
 - **Email Address**
-- **Country** (detected by TLD, or WHOIS for .com/.net domains)
+- **Country** (detected by TLD, or WHOIS for .com/.net domains; codes mapped to full names)
 - **Last Email Date** (when the email was sent/received)
+- **Count** (how many times the email appears in all folders)
 
-**Sorted by:** Country, then Email Address, then Date
+**Sorted by:** Country (A-Z), then by Count (most frequent first)
+
+## Summary
+
+The script prints statistics after completion:
+```
+Total unique emails: 1,234
+Total emails found:  3,456
+Countries:           42
+Unknown country:     156
+```
 
 ## Features
 
 - Scans **all emails** in the PST (no time limit)
 - Detects country by TLD (e.g., .de = Germany)
-- For unknown TLDs (.com, .net, etc.), attempts WHOIS lookup on the domain registrant
-- Extracts the date each email was sent
+- For unknown TLDs (.com, .net, etc.), attempts WHOIS registrant lookup
+- WHOIS country codes automatically mapped to full names (e.g., DK → Denmark)
+- Tracks email frequency (engagement metric)
+- Real-time progress bar during country detection
 - Deduplicates and exports to Excel
