@@ -7,6 +7,7 @@ import imaplib
 import email
 import os
 import re
+import json
 import pandas as pd
 import config  # Local file for secrets
 from datetime import datetime
@@ -130,6 +131,30 @@ GENERIC_TLDS = {'com', 'org', 'net', 'edu', 'gov', 'biz', 'info', 'co'}
 
 # Cache for WHOIS lookups to avoid duplicate slow network requests
 WHOIS_CACHE = {}
+WHOIS_CACHE_FILE = 'whois_cache.json'
+
+
+def load_whois_cache():
+    """Load WHOIS cache from disk if it exists."""
+    global WHOIS_CACHE
+    if os.path.exists(WHOIS_CACHE_FILE):
+        try:
+            with open(WHOIS_CACHE_FILE, 'r', encoding='utf-8') as f:
+                WHOIS_CACHE = json.load(f)
+            print(f"Loaded {len(WHOIS_CACHE)} cached WHOIS entries from {WHOIS_CACHE_FILE}")
+        except Exception as e:
+            print(f"Warning: Could not load WHOIS cache: {e}")
+            WHOIS_CACHE = {}
+
+
+def save_whois_cache():
+    """Save WHOIS cache to disk for future use."""
+    try:
+        with open(WHOIS_CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(WHOIS_CACHE, f, indent=2, ensure_ascii=False)
+        print(f"Saved {len(WHOIS_CACHE)} WHOIS entries to {WHOIS_CACHE_FILE}")
+    except Exception as e:
+        print(f"Warning: Could not save WHOIS cache: {e}")
 
 
 def detect_country(email_address):
@@ -456,6 +481,9 @@ def save_to_excel(email_country_list):
 
 
 if __name__ == "__main__":
+    # Load existing WHOIS cache from previous runs
+    load_whois_cache()
+    
     # Extract email addresses and their corresponding countries from mailbox
     if getattr(config, "USE_PST", False):
         email_country_data = extract_emails_from_pst(
@@ -464,5 +492,9 @@ if __name__ == "__main__":
         )
     else:
         email_country_data = extract_emails()
+    
     # Save the results to an Excel file, organized by country
     save_to_excel(email_country_data)
+    
+    # Save WHOIS cache for future runs
+    save_whois_cache()
