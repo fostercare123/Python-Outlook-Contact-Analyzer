@@ -336,38 +336,44 @@ def extract_emails_from_pst(pst_path, allowed_folder_names=None):
                 continue
 
             for item in items:
-                if getattr(item, "Class", None) != 43:
-                    continue
-
-                # Capture email send date
                 try:
-                    sent_date = getattr(item, "SentOn", None)
-                    if not sent_date:
-                        sent_date = getattr(item, "ReceivedTime", None)
-                    if sent_date:
-                        sent_date = sent_date.strftime("%Y-%m-%d")
-                    else:
-                        sent_date = "Unknown"
-                except Exception:
-                    sent_date = "Unknown"
-
-                for header_value in [
-                    getattr(item, "SenderEmailAddress", ""),
-                    getattr(item, "To", ""),
-                    getattr(item, "CC", ""),
-                    getattr(item, "BCC", ""),
-                ]:
-                    if not header_value:
+                    # Check if it's a mail item (Class 43)
+                    if getattr(item, "Class", None) != 43:
                         continue
-                    matches = re.findall(EMAIL_REGEX, header_value)
-                    for match in matches:
-                        if match not in found_addresses:
-                            found_addresses[match] = {"date": sent_date, "count": 1}
+
+                    # Capture email send date
+                    try:
+                        sent_date = getattr(item, "SentOn", None)
+                        if not sent_date:
+                            sent_date = getattr(item, "ReceivedTime", None)
+                        if sent_date:
+                            sent_date = sent_date.strftime("%Y-%m-%d")
                         else:
-                            found_addresses[match]["count"] += 1
-                            # Keep the most recent date
-                            if sent_date != "Unknown":
-                                found_addresses[match]["date"] = sent_date
+                            sent_date = "Unknown"
+                    except Exception:
+                        sent_date = "Unknown"
+
+                    # Extract email addresses from various fields
+                    for field in ["SenderEmailAddress", "To", "CC", "BCC"]:
+                        try:
+                            header_value = getattr(item, field, "")
+                            if not header_value:
+                                continue
+                            matches = re.findall(EMAIL_REGEX, header_value)
+                            for match in matches:
+                                if match not in found_addresses:
+                                    found_addresses[match] = {"date": sent_date, "count": 1}
+                                else:
+                                    found_addresses[match]["count"] += 1
+                                    # Keep the most recent date
+                                    if sent_date != "Unknown":
+                                        found_addresses[match]["date"] = sent_date
+                        except Exception:
+                            # Skip fields that don't exist or cause COM errors
+                            continue
+                except Exception:
+                    # Skip items that cause errors
+                    continue
 
         # Convert dict to list of tuples with country detection
         email_country_pairs = []
