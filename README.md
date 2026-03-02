@@ -2,6 +2,17 @@
 
 Extract unique email addresses from Outlook and save them to Excel with country lookup by TLD and optional WHOIS registrant info. Includes email send dates and engagement frequency.
 
+## Preview Output
+
+`extracted_contacts.xlsx` will look like this:
+
+| Email Address | Country | Last Email Date | Count |
+|---|---|---|---:|
+| customer@novonordisk.com | Denmark | 2025-11-04 | 14 |
+| support@firma.de | Germany | 2024-08-19 | 6 |
+| sales@company.fr | France | 2023-03-12 | 3 |
+| info@example.net | Unknown | 2022-09-01 | 1 |
+
 ## Quick start
 
 ```bash
