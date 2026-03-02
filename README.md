@@ -66,6 +66,16 @@ Output: `extracted_contacts.xlsx` with columns:
 
 **Sorted by:** Country (A-Z), then by Count (most frequent first)
 
+## WHOIS Caching
+
+WHOIS lookups are cached locally in `whois_cache.json` to avoid redundant network requests. The first run performs all WHOIS queries (slower), but subsequent runs reuse the cache (much faster).
+
+- **First run:** WHOIS queries all unknown domains, saves results to `whois_cache.json`
+- **Subsequent runs:** Loads cache automatically, only queries new domains
+- **To reset cache:** Delete `whois_cache.json` and re-run to refresh all lookups
+
+This cache persists across runs, so you only pay the WHOIS performance cost once.
+
 ## Summary
 
 The script prints statistics after completion:
