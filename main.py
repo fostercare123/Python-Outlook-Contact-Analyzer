@@ -128,6 +128,9 @@ COUNTRY_CODE_MAP = {
 # Common generic TLDs (map to 'Unknown' as they don't indicate country)
 GENERIC_TLDS = {'com', 'org', 'net', 'edu', 'gov', 'biz', 'info', 'co'}
 
+# Cache for WHOIS lookups to avoid duplicate slow network requests
+WHOIS_CACHE = {}
+
 
 def detect_country(email_address):
     """
@@ -164,6 +167,7 @@ def detect_country(email_address):
 def whois_lookup_country(domain):
     """
     Attempts to detect country via WHOIS registrant info for generic TLDs.
+    Uses caching to avoid duplicate lookups for the same domain.
     
     Args:
         domain (str): Domain name (e.g., "novonordisk.com")
@@ -174,22 +178,32 @@ def whois_lookup_country(domain):
     if not whois:
         return None
     
+    # Check cache first
+    if domain in WHOIS_CACHE:
+        return WHOIS_CACHE[domain]
+    
     try:
         w = whois.whois(domain)
         registrant_country = getattr(w, "registrant_country", None)
         if registrant_country:
             # Try to map the code to full name
             country_upper = registrant_country.upper().strip()
-            return COUNTRY_CODE_MAP.get(country_upper, registrant_country)
-    except Exception:
-        pass
+            result = COUNTRY_CODE_MAP.get(country_upper, registrant_country)
+            WHOIS_CACHE[domain] = result
+            return result
+    except Exception as e:
+        # Cache the failure too to avoid repeated failed lookups
+        WHOIS_CACHE[domain] = None
+        if getattr(config, "ENABLE_WHOIS", False):
+            print(f"\nWHOIS lookup failed for {domain}: {e}")
     
     return None
 
 
 def detect_country_with_whois(email_address):
     """
-    Detects country: first by TLD, then by WHOIS for generic TLDs.
+    Detects country: first by TLD, then optionally by WHOIS for generic TLDs.
+    WHOIS lookups are controlled by config.ENABLE_WHOIS setting.
     
     Args:
         email_address (str): Email address (e.g., "user@novonordisk.com")
@@ -200,8 +214,8 @@ def detect_country_with_whois(email_address):
     country = detect_country(email_address)
     source = "TLD"
     
-    # If unknown, try WHOIS on generic TLDs
-    if country == "Unknown":
+    # If unknown, try WHOIS on generic TLDs (only if enabled)
+    if country == "Unknown" and getattr(config, "ENABLE_WHOIS", False):
         try:
             domain = email_address.split("@")[1]
             whois_country = whois_lookup_country(domain)
