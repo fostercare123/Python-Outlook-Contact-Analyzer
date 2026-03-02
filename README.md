@@ -23,9 +23,11 @@ EMAIL_PASS=your-app-password-here
 
 ## PST mode (no login)
 
-Use this if you already exported a .pst file from Outlook.
+**What is PST?** PST (Personal Storage Table) is Outlook's file format for storing emails, calendar items, and contacts. You can export your mailbox to a `.pst` file from Outlook: File → Open & Export → Import/Export → Export to a file → Outlook Data File (.pst).
 
-In `config_classic.py`:
+Use this mode if you already have a PST file:
+
+In `config.py`:
 
 ```python
 USE_PST = True
@@ -35,7 +37,7 @@ PST_FOLDERS = []  # Empty = scan all folders, or set ["Inbox"]
 
 ## IMAP mode (login)
 
-In `config_classic.py`:
+In `config.py`:
 
 ```python
 USE_PST = False
@@ -44,7 +46,7 @@ USE_PST = False
 ## Run
 
 ```bash
-python run_classic.py
+python main.py
 ```
 
 Output: `extracted_contacts.xlsx` with columns:

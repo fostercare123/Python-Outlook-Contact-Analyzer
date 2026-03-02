@@ -9,7 +9,7 @@ import email
 import os
 import re
 import pandas as pd
-import config_classic  # Local file for secrets
+import config  # Local file for secrets
 from datetime import datetime
 from collections import defaultdict
 
@@ -226,7 +226,7 @@ def extract_emails():
     try:
         # Establish secure connection to the IMAP server
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-        mail.login(config_classic.EMAIL_USER, config_classic.EMAIL_PASS)
+        mail.login(config.EMAIL_USER, config.EMAIL_PASS)
         # Select the 'inbox' folder; use "Sent Items" for sent mail
         mail.select("inbox")
     except Exception as e:
@@ -300,7 +300,7 @@ def extract_emails_from_pst(pst_path, allowed_folder_names=None):
         return []
 
     if not pst_path:
-        print("PST path is empty. Set PST_PATH in config_classic.py")
+        print("PST path is empty. Set PST_PATH in config.py")
         return []
 
     pst_path = os.path.abspath(pst_path)
@@ -438,10 +438,10 @@ def save_to_excel(email_country_list):
 
 if __name__ == "__main__":
     # Extract email addresses and their corresponding countries from mailbox
-    if getattr(config_classic, "USE_PST", False):
+    if getattr(config, "USE_PST", False):
         email_country_data = extract_emails_from_pst(
-            getattr(config_classic, "PST_PATH", ""),
-            getattr(config_classic, "PST_FOLDERS", None),
+            getattr(config, "PST_PATH", ""),
+            getattr(config, "PST_FOLDERS", None),
         )
     else:
         email_country_data = extract_emails()
