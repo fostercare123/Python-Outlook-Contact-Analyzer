@@ -2,8 +2,6 @@
 
 Extract unique email addresses from Outlook and save them to Excel with country lookup by TLD and optional WHOIS registrant info. Includes email send dates and engagement frequency.
 
-**Author:** Vasilije Niko Nikolic
-
 ## Quick start
 
 ```bash
@@ -12,20 +10,11 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Configure
-
-Edit `.env` with your credentials (used only for IMAP mode):
-
-```
-EMAIL_USER=your-email@outlook.com
-EMAIL_PASS=your-app-password-here
-```
-
-## PST mode (no login)
+## Mode 1: PST (no login)
 
 **What is PST?** PST (Personal Storage Table) is Outlook's file format for storing emails, calendar items, and contacts. You can export your mailbox to a `.pst` file from Outlook: File → Open & Export → Import/Export → Export to a file → Outlook Data File (.pst).
 
-Use this mode if you already have a PST file:
+Use this mode if you already have a PST file. You do not need `.env` for this mode.
 
 In `config.py`:
 
@@ -35,7 +24,16 @@ PST_PATH = r"C:\path\to\mailbox.pst"
 PST_FOLDERS = []  # Empty = scan all folders, or set ["Inbox"]
 ```
 
-## IMAP mode (login)
+## Mode 2: IMAP (login)
+
+Use this mode if you want to connect directly to your mailbox.
+
+Create or edit `.env`:
+
+```
+EMAIL_USER=your-email@outlook.com
+EMAIL_PASS=your-app-password-here
+```
 
 In `config.py`:
 

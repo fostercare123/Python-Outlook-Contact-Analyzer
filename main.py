@@ -1,7 +1,6 @@
 """
 Outlook Contact Analyzer
 Extracts unique email addresses from Outlook and analyzes geographic distribution.
-Author: Vasilije Niko Nikolic
 """
 
 import imaplib
