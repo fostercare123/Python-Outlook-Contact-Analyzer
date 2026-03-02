@@ -15,8 +15,11 @@ config.py
 
 # Output Data
 *.txt
+!requirements.txt
 *.csv
 *.xlsx
+*.pst
+*.pst.tmp
 
 # IDE
 .vscode/
