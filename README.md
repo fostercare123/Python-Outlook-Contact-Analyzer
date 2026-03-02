@@ -1,6 +1,6 @@
 # Python Email Extractor
 
-Extract unique email addresses from Outlook and save them to Excel with a simple country lookup by TLD.
+Extract unique email addresses from Outlook and save them to Excel with country lookup by TLD and optional WHOIS registrant info. Includes email send dates.
 
 ## Quick start
 
@@ -45,4 +45,17 @@ USE_PST = False
 python run_classic.py
 ```
 
-Output: `extracted_contacts.xlsx` (sorted by Country, then Email Address)
+Output: `extracted_contacts.xlsx` with columns:
+- **Email Address**
+- **Country** (detected by TLD, or WHOIS for .com/.net domains)
+- **Last Email Date** (when the email was sent/received)
+
+**Sorted by:** Country, then Email Address, then Date
+
+## Features
+
+- Scans **all emails** in the PST (no time limit)
+- Detects country by TLD (e.g., .de = Germany)
+- For unknown TLDs (.com, .net, etc.), attempts WHOIS lookup on the domain registrant
+- Extracts the date each email was sent
+- Deduplicates and exports to Excel

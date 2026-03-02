@@ -9,11 +9,18 @@ import os
 import re
 import pandas as pd
 import config_classic  # Local file for secrets
+from datetime import datetime
+from collections import defaultdict
 
 try:
     import win32com.client  # Requires pywin32 on Windows
 except Exception:
     win32com = None
+
+try:
+    import whois
+except Exception:
+    whois = None
 
 # Configuration constants
 IMAP_SERVER = 'outlook.office365.com'
@@ -106,6 +113,57 @@ def detect_country(email_address):
     except Exception:
         # If parsing fails, return unknown
         return 'Unknown'
+
+
+def whois_lookup_country(domain):
+    """
+    Attempts to detect country via WHOIS registrant info for generic TLDs.
+    
+    Args:
+        domain (str): Domain name (e.g., "novonordisk.com")
+    
+    Returns:
+        str: Country code or name if found, otherwise None.
+    """
+    if not whois:
+        return None
+    
+    try:
+        w = whois.whois(domain)
+        registrant_country = getattr(w, "registrant_country", None)
+        if registrant_country:
+            return registrant_country
+    except Exception:
+        pass
+    
+    return None
+
+
+def detect_country_with_whois(email_address):
+    """
+    Detects country: first by TLD, then by WHOIS for generic TLDs.
+    
+    Args:
+        email_address (str): Email address (e.g., "user@novonordisk.com")
+    
+    Returns:
+        tuple: (country_name, source) where source is "TLD" or "WHOIS"
+    """
+    country = detect_country(email_address)
+    source = "TLD"
+    
+    # If unknown, try WHOIS on generic TLDs
+    if country == "Unknown":
+        try:
+            domain = email_address.split("@")[1]
+            whois_country = whois_lookup_country(domain)
+            if whois_country:
+                country = whois_country
+                source = "WHOIS"
+        except Exception:
+            pass
+    
+    return (country, source)
 
 
 def extract_emails():
@@ -218,7 +276,7 @@ def extract_emails_from_pst(pst_path, allowed_folder_names=None):
             return []
 
         allowed = set(name.lower() for name in (allowed_folder_names or []) if name)
-        found_addresses = set()
+        found_addresses = {}  # Changed to dict to store dates
 
         for folder in _iter_folders(store_root):
             if allowed and folder.Name.lower() not in allowed:
@@ -233,6 +291,18 @@ def extract_emails_from_pst(pst_path, allowed_folder_names=None):
                 if getattr(item, "Class", None) != 43:
                     continue
 
+                # Capture email send date
+                try:
+                    sent_date = getattr(item, "SentOn", None)
+                    if not sent_date:
+                        sent_date = getattr(item, "ReceivedTime", None)
+                    if sent_date:
+                        sent_date = sent_date.strftime("%Y-%m-%d")
+                    else:
+                        sent_date = "Unknown"
+                except Exception:
+                    sent_date = "Unknown"
+
                 for header_value in [
                     getattr(item, "SenderEmailAddress", ""),
                     getattr(item, "To", ""),
@@ -242,12 +312,14 @@ def extract_emails_from_pst(pst_path, allowed_folder_names=None):
                     if not header_value:
                         continue
                     matches = re.findall(EMAIL_REGEX, header_value)
-                    found_addresses.update(matches)
+                    for match in matches:
+                        found_addresses[match] = sent_date
 
-        email_country_pairs = [
-            (email_addr, detect_country(email_addr))
-            for email_addr in sorted(found_addresses)
-        ]
+        # Convert dict to list of tuples with country detection
+        email_country_pairs = []
+        for email_addr, sent_date in sorted(found_addresses.items()):
+            country, _ = detect_country_with_whois(email_addr)
+            email_country_pairs.append((email_addr, country, sent_date))
 
         return email_country_pairs
     finally:
@@ -261,23 +333,23 @@ def extract_emails_from_pst(pst_path, allowed_folder_names=None):
 
 def save_to_excel(email_country_list):
     """
-    Converts the list of email-country pairs into a sorted Excel spreadsheet.
+    Converts the list of (email, country, date) tuples into a sorted Excel spreadsheet.
     
     Args:
-        email_country_list (list): List of tuples (email, country).
+        email_country_list (list): List of tuples (email, country, date).
     """
     if not email_country_list:
         print("No emails found. Skipping file creation.")
         return
 
-    # Create a DataFrame from the email-country pairs with proper column names
+    # Create a DataFrame from the email-country-date tuples with proper column names
     df = pd.DataFrame(
         email_country_list,
-        columns=['Email Address', 'Country']
+        columns=['Email Address', 'Country', 'Last Email Date']
     )
     
     # Sort by country first, then by email address for better organization
-    df.sort_values(by=['Country', 'Email Address'], inplace=True)
+    df.sort_values(by=['Country', 'Email Address', 'Last Email Date'], inplace=True)
     df.reset_index(drop=True, inplace=True)
 
     # Export using openpyxl as the underlying engine
